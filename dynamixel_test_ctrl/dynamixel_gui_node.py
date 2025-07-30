@@ -52,7 +52,7 @@ class DynamixelGuiNode(Node):
             self.label_vars[dxl_id].set(self.format_label(dxl_id))
             Label(self.root, textvariable=self.label_vars[dxl_id], width=60, anchor='w').grid(row=idx, column=6, columnspan=3)
 
-        self.get_logger().info("🖥️ Dynamixel GUI Node 시작")
+        self.get_logger().info("Starting Dynamixel GUI Node")
         self.root.after(100, self.tk_loop)
         self.root.mainloop()
 
@@ -84,7 +84,7 @@ class DynamixelGuiNode(Node):
     def update_value(self, dxl_id, key, value):
         if key == 'pos':
             self.current_pos[dxl_id] = value
-            self.pos_initialized[dxl_id] = True  # ✅ 최초 수신 감지
+            self.pos_initialized[dxl_id] = True
         elif key == 'vel':
             self.current_vel[dxl_id] = value
         elif key == 'cur':
@@ -94,7 +94,7 @@ class DynamixelGuiNode(Node):
     def increment(self, dxl_id):
         mode = self.current_modes[dxl_id]
         step = {'position': 100, 'velocity': 20, 'current': 5}[mode]
-        max_val = {'position': 10000, 'velocity': 100, 'current': 5}[mode]
+        max_val = {'position': 10000, 'velocity': 100, 'current': 30}[mode]
         self.goal_values[dxl_id] = min(self.goal_values[dxl_id] + step, max_val)
         self.update_label(dxl_id)
         self.publish_goal(dxl_id)
@@ -118,11 +118,11 @@ class DynamixelGuiNode(Node):
             self.pubs[dxl_id]['goal_current'].publish(Int32(data=value))
 
     def tk_loop(self):
-        rclpy.spin_once(self, timeout_sec=0.01)  # ✅ ROS 콜백 한 번 처리
+        rclpy.spin_once(self, timeout_sec=0.01)
         self.root.update()
-        self.root.after(50, self.tk_loop)  # GUI와 ROS 이벤트 병행 처리
+        self.root.after(50, self.tk_loop)
 
 def main(args=None):
     rclpy.init(args=args)
-    DynamixelGuiNode()  # GUI가 mainloop 내에서 유지되므로 spin 불필요
+    DynamixelGuiNode()
     rclpy.shutdown()

@@ -28,10 +28,10 @@ class DynamixelMasterNode(Node):
         self.packetHandler = PacketHandler(PROTOCOL_VERSION)
 
         if not self.portHandler.openPort():
-            self.get_logger().error("❌ 포트 열기 실패")
+            self.get_logger().error("Failed to open port!")
             return
         if not self.portHandler.setBaudRate(BAUDRATE):
-            self.get_logger().error("❌ 보레이트 설정 실패")
+            self.get_logger().error("Failed to set baudrate!")
             return
 
         self.current_mode = {dxl_id: 'position' for dxl_id in self.dxl_ids}
@@ -50,7 +50,6 @@ class DynamixelMasterNode(Node):
             self.set_operating_mode(dxl_id, 'position')
             self.packetHandler.write1ByteTxRx(self.portHandler, dxl_id, ADDR_TORQUE_ENABLE, 1)
 
-            # bulk read 요청 등록
             self.group_bulk_read.addParam(dxl_id, ADDR_PRESENT_POSITION, 10)  # pos(4) + vel(4) + cur(2)
             
             self.create_subscription(Int32, f'/dxl{dxl_id}/goal_position', lambda msg, i=dxl_id: self.send_command(i, 'position', msg.data), 10)
@@ -59,10 +58,11 @@ class DynamixelMasterNode(Node):
             self.create_subscription(String, f'/dxl{dxl_id}/set_mode', lambda msg, i=dxl_id: self.set_operating_mode(i, msg.data), 10)
 
         self.timer = self.create_timer(0.02, self.read_states)
-        self.get_logger().info(f"✅ Dynamixel Master Node 시작 (IDs: {self.dxl_ids})")
+        self.get_logger().info(f"Starting Dynamixel Master Node (IDs: {self.dxl_ids})")
         
         for dxl_id in self.dxl_ids:
             self.send_command(dxl_id, 'position', 0)
+        self.get_logger().info(f"Initialize servo motors position")
 
     def send_command(self, dxl_id, mode, value):
         if self.current_mode[dxl_id] != mode:
@@ -83,16 +83,16 @@ class DynamixelMasterNode(Node):
         self.current_mode[dxl_id] = mode
         self.pub[dxl_id]['mode'].publish(String(data=mode))
         self.pub[dxl_id]['torque'].publish(Bool(data=True))
-        self.get_logger().info(f"🔧 [ID {dxl_id}] 모드 설정 → {mode}")
+        self.get_logger().info(f"[ID {dxl_id}] Mode change → {mode}")
 
     def read_states(self):
         if self.group_bulk_read.txRxPacket() != COMM_SUCCESS:
-            self.get_logger().warn("⚠️ Bulk Read 실패")
+            self.get_logger().warn("Failed to read Bulk")
             return
 
         for dxl_id in self.dxl_ids:
             if not self.group_bulk_read.isAvailable(dxl_id, ADDR_PRESENT_POSITION, 10):
-                self.get_logger().warn(f"⚠️ [ID {dxl_id}] position/velocity/current not available")
+                self.get_logger().warn(f"[ID {dxl_id}] position/velocity/current not available")
                 continue
 
             pos = self.group_bulk_read.getData(dxl_id, ADDR_PRESENT_POSITION, 4)
